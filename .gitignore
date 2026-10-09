@@ -1,0 +1,4 @@
+backup/
+.pio/
+secrets.h
+**/secrets.h
