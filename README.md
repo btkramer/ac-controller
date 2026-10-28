@@ -1,24 +1,72 @@
 # AC Controller
 
-A wall-mounted touchscreen for two ductless mini-split air conditioners, built on a
-4-inch ESP32-S3 panel and driven by Home Assistant.
+![ESP32-S3](https://img.shields.io/badge/ESP32--S3-E7352C?logo=espressif&logoColor=white)
+![PlatformIO](https://img.shields.io/badge/PlatformIO-F5822A?logo=platformio&logoColor=white)
+![LVGL 9](https://img.shields.io/badge/LVGL-9.2-343839)
+![Home Assistant](https://img.shields.io/badge/Home%20Assistant-18BCF2?logo=homeassistant&logoColor=white)
+![Status](https://img.shields.io/badge/status-active%20development-2ea44f)
+
+A wall-mounted touchscreen for two ductless mini-split air conditioners. A 4-inch ESP32-S3
+panel talks to Home Assistant and gives both rooms one fast, glanceable control surface.
 
 ![AC Controller UI: overview page and a room page](docs/images/screenshot.png)
 
+## Why
+
+Mini-split remotes are small, cryptic and easy to lose, and the phone apps take too many taps for
+"make it a bit cooler". One wall panel shows both units at once, keeps them in sync
+when you want one temperature everywhere, and is simple enough for anyone in the house to use
+without explanation.
+
 ## Features
 
-- **Overview page** with both rooms at a glance: room temperature, mode, setpoint, fan and
-  any running off-timer, plus one-tap power per unit
+- **Overview page** with both rooms at a glance: room temperature, mode, setpoint, fan and any
+  running off-timer, plus one-tap power per unit
 - **Room pages** with a gradient setpoint dial (drag it or tap − / +), six modes (Off, Cool,
   Heat, Auto, Fan, Dry) and a fan-speed slider
-- **Sync mode**: keep both rooms in lock-step, collapsing the UI to a single "Both Rooms" page
-- **Presets** (Sleep, Comfort, All off), an airflow/swing sheet and per-room **off timers**
-- **Ambient clock screen** after idle, with weather and a 6-hour trend; the first touch only
-  wakes the screen, so you can't change settings by accident
-- **Night dimming** (10 PM – 6 AM) and an offline banner that locks controls whenever Home
-  Assistant can't be reached
-- Optimistic UI with a "Saved" / "No response" confirmation for every command
+- **Sync mode** keeps both rooms in lock-step, and the UI collapses to a single "Both Rooms" page
+- **Presets** (Sleep 76°, Comfort 72°, All off), an **airflow** sheet for vertical and horizontal
+  swing, and per-room **off timers** that survive a reboot
+- **Ambient clock screen** after idle, with outdoor weather and a 6-hour room-temperature trend.
+  The first touch only wakes the screen, so you can't change a setting by accident
+- **Night dimming** from 10 PM to 6 AM, plus an **offline banner** that locks controls whenever
+  Home Assistant can't be reached
+- Optimistic UI with a "Saved" / "No response" pulse on every command
 - **OTA updates** over HTTP (`POST /update`) with an ArduinoOTA fallback
+
+## Screens
+
+| | |
+|:---:|:---:|
+| ![Family Room, heating](docs/images/family-heat.png) | ![Overview with sync on](docs/images/synced.png) |
+| **Room page**: heating, with an off timer running | **Sync on**: both units linked |
+| ![Both Rooms page](docs/images/both-rooms.png) | ![Ambient clock screen](docs/images/ambient.png) |
+| **Both Rooms**: one dial for the whole house | **Ambient screen**: clock, weather and trend after idle |
+| ![Airflow sheet](docs/images/airflow.png) | ![Off timer sheet](docs/images/off-timer.png) |
+| **Airflow**: vertical and horizontal swing | **Off timer**: 30 min to 8 h |
+| ![Settings](docs/images/settings.png) | ![Offline banner](docs/images/offline.png) |
+| **Settings**: brightness, clock delay, night dimming, diagnostics | **Offline**: controls lock until Home Assistant is back |
+
+<sub>Screens rendered from the pixel-exact HTML mockups in <code>design/</code>, which track the firmware.</sub>
+
+## How it works
+
+```mermaid
+flowchart LR
+  Panel["ESP32-S3 panel<br/>LVGL UI"] -- "GET /api/states every 4 s" --> HA["Home Assistant"]
+  Panel -- "climate.* service calls<br/>(debounced queue)" --> HA
+  HA -- "LAN integration" --> AC1["Front Room<br/>mini-split"]
+  HA --> AC2["Family Room<br/>mini-split"]
+  HA -. "Node-RED sync + schedule" .-> HA
+```
+
+- The panel polls each `climate.*` entity every 4 seconds and sends changes through a command
+  queue. Mode is sent before temperature, then fan, with about 1.5 s of debounce, so quickly
+  dragging the dial produces one call instead of twenty.
+- Every field is **optimistically held** for 8 s after a tap, so the UI never snaps back while the
+  unit catches up.
+- Powering a unit on from Off sends `set_hvac_mode` first and the setpoint a second later. The
+  integration accepts a combined call but silently ignores the power-on.
 
 ## Hardware
 
@@ -31,10 +79,9 @@ A wall-mounted touchscreen for two ductless mini-split air conditioners, built o
 ## Software stack
 
 - PlatformIO + Arduino core (`espressif32@7.0.1`)
-- [LVGL 9.2](https://lvgl.io), [Arduino_GFX](https://github.com/moononournation/Arduino_GFX), ArduinoJson 7
-- Home Assistant REST API: polls `GET /api/states/<entity>` every 4 s and sends
-  `climate.*` service calls through a debounced command queue
-- Custom fonts (Outfit, Montserrat, Font Awesome) and pre-rendered dial assets generated by
+- [LVGL 9.2](https://lvgl.io) with partial rendering into two internal-RAM buffers,
+  [Arduino_GFX](https://github.com/moononournation/Arduino_GFX), ArduinoJson 7
+- Custom fonts (Outfit, Montserrat, Font Awesome) and pre-rendered dial assets, generated by
   `firmware/tools/gen_fonts.py` and `gen_assets.py`
 
 ## Repository layout
@@ -55,8 +102,8 @@ A wall-mounted touchscreen for two ductless mini-split air conditioners, built o
 3. Build and flash:
    ```sh
    cd firmware
-   pio run -e usb -t upload     # first flash over USB
-   AC_HOST=<panel-ip> pio run -e ota -t upload   # later updates over Wi-Fi
+   pio run -e usb -t upload                        # first flash over USB
+   AC_HOST=<panel-ip> pio run -e ota -t upload     # later updates over Wi-Fi
    ```
 
 ## Status
