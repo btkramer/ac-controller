@@ -1,0 +1,5 @@
+# Generated LVGL assets (firmware/tools/gen_fonts.py, gen_assets.py): kept out of
+# GitHub's language stats and collapsed in diffs.
+firmware/src/assets/assets.c linguist-generated=true
+firmware/src/assets/assets.h linguist-generated=true
+firmware/src/fonts/*.c linguist-generated=true
